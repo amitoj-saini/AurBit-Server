@@ -1,5 +1,6 @@
+from lib.db_functions.users import fetch_users, fetch_user_from_session
 from fastapi import Request, Response, status
-from lib import db, responses, functions
+from lib import responses, functions
 from lib.logger import logger
 from functools import wraps
 import inspect
@@ -32,7 +33,7 @@ def auth_validator(pwd):
 # middleware for validating paths based off of aurbit contexts
 async def path_validator(request: Request, call_next):
     # if no users created ( setup )
-    request.state.users_length = len(db.fetch_users())
+    request.state.users_length = len(fetch_users())
     if request.state.users_length == 0 and (request.url.path.rstrip("/") != "/users/register" or request.method != "POST"):
         return responses.generate_response(
             message="AurBit hasn't been setup yet, create a user.",
@@ -49,7 +50,7 @@ def login_required(exception=False):
             session_token = request.cookies.get("session")
             session_user = None
             if session_token:
-                session_user = db.fetch_user_from_session(token=session_token)
+                session_user = fetch_user_from_session(token=session_token)
                 
             if not session_user:
                 if (type(exception) == bool and not exception) or (inspect.isfunction(exception) and not exception(request)):

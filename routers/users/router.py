@@ -1,4 +1,4 @@
-from lib.db import create_new_user, create_user_session, delete_user_sessions, fetch_user, edit_user
+from lib.db_functions.users import create_new_user, create_user_session, delete_user_sessions, fetch_user, edit_user
 from lib.responses import generate_response
 from lib.middleware import login_required
 from fastapi import APIRouter, Request
