@@ -10,6 +10,7 @@ class CreateUser(BaseModel):
     email: EmailStr
     access: int | None = None # inital user creation doesn't require
     password: str | None = None # initial user creation require
+
 class LoginUser(BaseModel):
     email: EmailStr
     password: str
@@ -21,7 +22,7 @@ router = APIRouter()
 @login_required(exception=lambda req: req.state.users_length == 0)
 async def create_user(request: Request, user: CreateUser):
     # if no previous users ( allow super user creation )
-    
+    print(not request.state.user and request.state.users_length == 0 and user.password)
     if not request.state.user and request.state.users_length == 0 and user.password:
         created_user = create_new_user(displayName=user.displayName, email=user.email, password=user.password, initialized=True, access=0)
         if created_user:
@@ -30,8 +31,11 @@ async def create_user(request: Request, user: CreateUser):
                 "access_token": created_session.token
             }, code=200)
     else:
-        if request.state.user.access == 0:
-            created_user = create_new_user(displayName=user.displayName, email=user.email, initialized=False, access=1)
+        # if super user then create user template
+        if request.state.users_length == 0 and not user.password:
+            return generate_response(message="Missing field password", code=400)
+        elif request.state.user and request.state.user.access == 0:
+            created_user = create_new_user(displayName=user.displayName, email=user.email, initialized=False, access=(user.access or 1))
             if created_user:
                 return generate_response(message="User creation was successful", code=200)
             else:
@@ -43,6 +47,8 @@ async def create_user(request: Request, user: CreateUser):
 
     return generate_response(message="User Creation Failed", code=500)
 
+
+# allows normal login and also creates the password for user templates
 @router.post("/login")
 async def login_user(request: Request, user: LoginUser):
     db_user = fetch_user(email=user.email)

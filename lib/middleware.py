@@ -39,6 +39,13 @@ async def path_validator(request: Request, call_next):
             message="AurBit hasn't been setup yet, create a user.",
             code=400
         )
+    
+    session_token = request.cookies.get("session")
+    session_user = None
+    if session_token:
+        session_user = fetch_user_from_session(token=session_token)
+
+    request.state.user = session_user
 
     return await call_next(request)
 
@@ -47,19 +54,12 @@ def login_required(exception=False):
     def decorator(func):
         @wraps(func)
         async def wrapper(request: Request, *args, **kwargs):
-            session_token = request.cookies.get("session")
-            session_user = None
-            if session_token:
-                session_user = fetch_user_from_session(token=session_token)
-                
-            if not session_user:
+            if not request.state.user:
                 if (type(exception) == bool and not exception) or (inspect.isfunction(exception) and not exception(request)):
                     return responses.generate_response(
                         message="Invalid AurBit Session ID",
                         code=401
                     )
-            
-            request.state.user = session_user
 
             return await func(request, *args, **kwargs)
         return wrapper

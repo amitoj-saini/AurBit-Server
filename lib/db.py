@@ -3,7 +3,9 @@ from sqlalchemy.orm import declarative_base, sessionmaker, scoped_session, relat
 from sqlalchemy.ext.hybrid import hybrid_property
 from contextlib import contextmanager
 from lib.initial import CONFIG_DIR
+from alembic.config import Config
 from lib.logger import logger
+from alembic import command
 import secrets
 import bcrypt
 import os
@@ -18,7 +20,7 @@ class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, nullable=False, unique=True)
-    displayName = Column(String, nullable=False)
+    displayName = Column(String, nullable=True)
     access = Column(Integer, default=0) # 0: superuser, # 1: normal user... ( to be expanded later )
     initialized = Column(Boolean, default=False)
     _password = Column("password", String, nullable=True)
@@ -69,7 +71,8 @@ class Locations(Base):
 
 
 def init_db():
-    Base.metadata.create_all(bind=ENGINE)
+    alembic_config = Config("alembic.ini")
+    command.upgrade(alembic_config, "head")
 
 @contextmanager
 def session_scope():

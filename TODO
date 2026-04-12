@@ -1,2 +1,5 @@
-* Create a exception handler so api is consistent
-* Create an endpoint for setting current location
+* Fix the speed function (showiung too much speed after offline)
+* Create a fetch user locations
+* Create basic user editing features
+* Create geolocation fences
+* Create trips feature using AI
