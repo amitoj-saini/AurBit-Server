@@ -5,8 +5,7 @@ from fastapi import APIRouter, Request
 router = APIRouter()
 
 @router.get("/")
-async def update_location(request: Request):
-    
+async def app_state(request: Request):
     return generate_response(message="Everything looks good.", data={
         "authenticated": True,
         "initalized": False if request.state.users_length == 0 else True,
