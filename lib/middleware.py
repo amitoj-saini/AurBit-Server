@@ -1,5 +1,6 @@
 from lib.db_functions.users import fetch_users, fetch_user_from_session
 from fastapi import Request, Response, status
+from lib.responses import generate_response
 from lib import responses, functions
 from lib.logger import logger
 from functools import wraps
@@ -19,11 +20,14 @@ async def log_requests(request: Request, call_next):
 # validate authentication from user
 def auth_validator(pwd):
     async def middleware(request: Request, call_next):
-        auth = request.headers.get("authorization").removeprefix("Bearer ").strip()
-        if auth == pwd:
+        auth_header = request.headers.get("authorization")
+        print(auth_header)
+        auth = auth_header.removeprefix("Bearer ").strip() if auth_header and "Bearer" in auth_header else None
+        if auth:
             return await call_next(request)
+        elif not auth_header or "Bearer" not in auth_header:
+            return Response(status_code=status.HTTP_401_UNAUTHORIZED)
         else:
-            
             logger.access(f"Unauthorized User, incorrect bearer token from IP: {request.client.host}")
             limit = functions.leaky_rate_limiter(unauthorized_attempts=5, within=300, penalty=20, url="*", ip_addr=request.client.host)
             if limit: return limit
