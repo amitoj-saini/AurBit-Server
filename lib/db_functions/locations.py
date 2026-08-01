@@ -1,5 +1,6 @@
+from lib.db import User, Locations, session_scope
 from lib.db_functions.users import fetch_user
-from lib.db import Locations, session_scope
+from sqlalchemy import select, func, and_
 from datetime import datetime
 import math
 
@@ -51,3 +52,31 @@ def add_location(user_id, latitude, longitude, speed=None):
         session.add(location)
         session.commit()
         return location
+    
+    return False
+
+def fetch_recent_locations():
+    
+    with session_scope() as session:
+        recent_locations = (
+            select(
+                Locations.user_id,
+                func.max(Locations.timestamp).label("latest_timestamp")
+            )
+            .group_by(Locations.user_id)
+            .subquery()
+        )
+        
+        query = (
+            select(Locations, User)
+            .join(
+                recent_locations,
+                and_(
+                    Locations.user_id == recent_locations.c.user_id,
+                    Locations.timestamp == recent_locations.c.latest_timestamp
+                )
+            )
+            .join(User, User.id == Locations.user_id)
+        )
+        
+        return session.execute(query).all()
