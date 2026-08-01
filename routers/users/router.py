@@ -15,6 +15,9 @@ class LoginUser(BaseModel):
     email: EmailStr
     password: str
 
+class UserStatus(BaseModel):
+    email: EmailStr
+
 
 router = APIRouter()
 
@@ -22,7 +25,6 @@ router = APIRouter()
 @login_required(exception=lambda req: req.state.users_length == 0)
 async def create_user(request: Request, user: CreateUser):
     # if no previous users ( allow super user creation )
-    print(not request.state.user and request.state.users_length == 0 and user.password)
     if not request.state.user and request.state.users_length == 0 and user.password:
         created_user = create_new_user(displayName=user.displayName, email=user.email, password=user.password, initialized=True, access=0)
         if created_user:
@@ -47,6 +49,16 @@ async def create_user(request: Request, user: CreateUser):
 
     return generate_response(message="User Creation Failed", code=500)
 
+
+@router.post("/user-status")
+async def user_status(request: Request, user: UserStatus):
+    db_user = fetch_user(email=user.email)
+    if not db_user: return generate_response(message="The email does not exist", code=401)
+    
+    return generate_response(message="Fetched status", data={
+        "initialized": db_user.initialized
+    }, code=200)
+    
 
 # allows normal login and also creates the password for user templates
 @router.post("/login")
