@@ -4,8 +4,8 @@ initial.setup()
 
 from routers import users, location, appstate
 from lib import configs, db, middleware
+from fastapi import FastAPI, WebSocket
 from dotenv import load_dotenv
-from fastapi import FastAPI
 import uvicorn
 import os
 

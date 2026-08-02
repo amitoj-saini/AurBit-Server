@@ -1,8 +1,9 @@
 from lib.db_functions.locations import add_location, fetch_recent_locations
+from fastapi import APIRouter, Request, WebSocket, WebSocketDisconnect, status
+from lib.middleware import login_required, login_required_websocket
 from lib.responses import generate_response
-from lib.middleware import login_required
+from lib.websocket import ConnectionManager
 from lib.functions import image_to_base64
-from fastapi import APIRouter, Request
 from lib.initial import CONFIG_DIR
 from pydantic import BaseModel
 from lib.logger import logger
@@ -15,19 +16,19 @@ class Location(BaseModel):
 
 router = APIRouter()
 
+connection_manager = ConnectionManager()
 
-@router.get("/")
-@login_required()
-async def fetch_locations(request: Request):
-    locations = fetch_recent_locations()
-    if locations:
-        return generate_response(
-            message="Fetched locations sucessfully",
-            code=200,
-            data={
+
+def build_locations_payload(locations, current_user_id=None, message="Fetched locations successfully", code=200):
+    return {
+        "result": {
+            "action": "success" if 200 <= code < 300 else "error",
+            "message": message,
+            "code": code,
+            "data": {
                 "users": [
                     {
-                        "me": user.id == request.state.user.id,
+                        "me": user.id == current_user_id,
                         "image": image_to_base64(os.path.join(CONFIG_DIR, user.profile_picture)) if user.profile_picture else None,
                         "userid": location.user_id,
                         "user": user.displayName,
@@ -39,9 +40,32 @@ async def fetch_locations(request: Request):
                     for location, user in locations
                 ],
                 "region": []
-            },
-        )
-    return generate_response(message="Fetch location failed", code=500)
+            }
+        }
+    }
+
+async def broadcast_recent_locations():
+    locations = fetch_recent_locations()
+    payload = build_locations_payload(locations)
+    await connection_manager.broadcast_json(payload)
+
+
+@router.websocket("/")
+@login_required_websocket()
+async def fetch_locations(websocket: WebSocket):
+    await websocket.accept()
+    await connection_manager.connect(websocket)
+
+    try:
+        locations = fetch_recent_locations()
+        await websocket.send_json(build_locations_payload(locations, current_user_id=websocket.state.user.id))
+
+        while True:
+            await websocket.receive()
+    except WebSocketDisconnect:
+        pass
+    finally:
+        await connection_manager.disconnect(websocket)
 
 
 @router.post("/update")
@@ -51,5 +75,6 @@ async def update_location(request: Request, location: Location):
         request.state.user.id, location.latitude, location.longitude, location.speed
     )
     if location:
+        await broadcast_recent_locations()
         return generate_response(message="Location updated successfully.", code=200)
     return generate_response(message="User Location Update Failed", code=500)
