@@ -2,7 +2,27 @@ from lib.db_functions.users import fetch_ratelimit, update_ratelimit
 from datetime import datetime, timezone, timedelta
 from fastapi import Response, status
 from lib.logger import logger
+from PIL import Image
 from lib import db
+import base64
+import io
+
+def image_to_base64(path, max_size: int=256, quality: int=75):
+    try:
+        img = Image.open(path)
+        if img.mode in ("RGBA", "P"):
+            img = img.convert("RGB")
+            
+        img.thumbnail((max_size, max_size))
+
+        buffer = io.BytesIO()
+        img.save(buffer, format="JPEG", quality=quality, optimize=True)
+
+        return base64.b64encode(buffer.getvalue()).decode("utf-8")
+    except:
+        pass
+    
+    return None
 
 def leaky_rate_limiter(unauthorized_attempts, within, penalty, **kwargs):
     resp = False

@@ -23,6 +23,7 @@ class User(Base):
     displayName = Column(String, nullable=True)
     access = Column(Integer, default=0) # 0: superuser, # 1: normal user... ( to be expanded later )
     initialized = Column(Boolean, default=False)
+    profile_picture = Column(String, default=None, nullable=True)
     _password = Column("password", String, nullable=True)
 
     @hybrid_property

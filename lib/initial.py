@@ -3,7 +3,13 @@ import os
 
 APP_NAME = "aurbit"
 CONFIG_DIR = user_config_dir(APP_NAME)
+DIRS = [
+    CONFIG_DIR,
+    os.path.join(CONFIG_DIR, "uploads"),
+    os.path.join(CONFIG_DIR, "uploads", "images")
+]
 
 
 def setup():
-    os.makedirs(CONFIG_DIR, exist_ok=True)
+    for DIR in DIRS:
+        os.makedirs(DIR, exist_ok=True)
