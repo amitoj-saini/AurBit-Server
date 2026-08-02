@@ -61,7 +61,9 @@ async def fetch_locations(websocket: WebSocket):
         await websocket.send_json(build_locations_payload(locations, current_user_id=websocket.state.user.id))
 
         while True:
-            await websocket.receive()
+            event = await websocket.receive()
+            if event["type"] == "websocket.disconnect":
+                break
     except WebSocketDisconnect:
         pass
     finally:

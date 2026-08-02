@@ -68,7 +68,7 @@ class Locations(Base):
     timestamp = Column(DateTime, nullable=False, default=func.now(), primary_key=True)
     latitude = Column(Float, nullable=False)
     longitude = Column(Float, nullable=False)
-    speed = Column(Integer, default=0) # defaults to m/s
+    speed = Column(Float, default=0) # defaults to m/s
 
 
 def init_db():

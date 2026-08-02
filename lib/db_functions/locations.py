@@ -5,7 +5,6 @@ from datetime import datetime
 import math
 
 def calculate_speed(lat1, lon1, lat2, lon2, time_diff_seconds):
-    print(type(lat1), type(lon1), type(lat2), type(lon2), type(time_diff_seconds))
     # radius of the Earth in meters
     R = 6371e3
     phi1 = math.radians(lat1)
