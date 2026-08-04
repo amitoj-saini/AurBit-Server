@@ -55,27 +55,38 @@ def add_location(user_id, latitude, longitude, speed=None):
     return False
 
 def fetch_recent_locations():
-    
     with session_scope() as session:
-        recent_locations = (
+        ranked_locations = (
             select(
-                Locations.user_id,
-                func.max(Locations.timestamp).label("latest_timestamp")
+                Locations.id.label("id"),
+                Locations.user_id.label("user_id"),
+                Locations.latitude.label("latitude"),
+                Locations.longitude.label("longitude"),
+                Locations.timestamp.label("timestamp"),
+                func.row_number()
+                .over(
+                    partition_by=Locations.user_id,
+                    order_by=[
+                        Locations.timestamp.desc(),
+                        Locations.id.desc()
+                    ]
+                )
+                .label("rn")
             )
-            .group_by(Locations.user_id)
             .subquery()
         )
-        
+
         query = (
             select(Locations, User)
             .join(
-                recent_locations,
-                and_(
-                    Locations.user_id == recent_locations.c.user_id,
-                    Locations.timestamp == recent_locations.c.latest_timestamp
-                )
+                ranked_locations,
+                Locations.id == ranked_locations.c.id
             )
-            .join(User, User.id == Locations.user_id)
+            .join(
+                User,
+                User.id == Locations.user_id
+            )
+            .where(ranked_locations.c.rn == 1)
         )
-        
+
         return session.execute(query).all()

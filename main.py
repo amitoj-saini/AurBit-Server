@@ -27,4 +27,4 @@ app.include_router(appstate.router, prefix="/app-state")
 
 if __name__ == "__main__":
     db.init_db()
-    uvicorn.run("main:app", host="127.0.0.1", port=CONFIG["PORT"], reload=True if os.environ.get("dev") else False)
+    uvicorn.run("main:app", host=CONFIG["HOST"], port=CONFIG["PORT"], reload=True if os.environ.get("dev") else False)

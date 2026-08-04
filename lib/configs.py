@@ -9,11 +9,13 @@ import os
 
 SERVER_CONFIG_FILE = "aurbit-server.json"
 DEFAULT_CONFIG = {
+    "HOST": "127.0.0.1",
     "PORT": 2872, # ( spells out the word aura on a keypad )
     "PWD": ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(32))
 }
 
 class Config(BaseModel):
+    HOST: str
     PORT: int
     PWD: str
 

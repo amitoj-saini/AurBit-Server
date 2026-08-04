@@ -4,8 +4,11 @@ from lib.responses import generate_response
 from lib import responses, functions
 from lib.logger import logger
 from functools import wraps
+from lib import configs
 import inspect
 import time
+
+CONFIG = configs.fetch_server_config()
 
 async def log_requests(request: Request, call_next):
     start_time = time.time()
@@ -22,7 +25,8 @@ def auth_validator(pwd):
     async def middleware(request: Request, call_next):
         auth_header = request.headers.get("authorization")
         auth = auth_header.removeprefix("Bearer ").strip() if auth_header and "Bearer" in auth_header else None
-        if auth:
+        # check if bearer token is correct
+        if auth and auth == CONFIG["PWD"]:
             return await call_next(request)
         elif not auth_header or "Bearer" not in auth_header:
             return Response(status_code=status.HTTP_401_UNAUTHORIZED)

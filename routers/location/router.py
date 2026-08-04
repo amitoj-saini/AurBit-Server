@@ -11,7 +11,7 @@ import os
 class Location(BaseModel):
     longitude: float
     latitude: float
-    speed: int | None = None
+    speed: float | None = None
 
 
 router = APIRouter()

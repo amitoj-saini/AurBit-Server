@@ -64,8 +64,9 @@ class RateLimit(Base):
 
 class Locations(Base):
     __tablename__ = "locations"
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    timestamp = Column(DateTime, nullable=False, default=func.now(), primary_key=True)
+    timestamp = Column(DateTime, nullable=False, default=func.now())
     latitude = Column(Float, nullable=False)
     longitude = Column(Float, nullable=False)
     speed = Column(Float, default=0) # defaults to m/s
