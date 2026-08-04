@@ -128,7 +128,7 @@ async def user_details(request: Request):
                 else None
             ),
             "email": user.email,
-            "user": user.displayName    
+            "displayName": user.displayName    
         },
         
         code=200
