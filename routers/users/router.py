@@ -5,13 +5,17 @@ from lib.db_functions.users import (
     fetch_user,
     edit_user,
 )
+from fastapi import APIRouter, Request, UploadFile, File, Form
+from pydantic import BaseModel, EmailStr, ValidationError
+from lib.functions import image_to_base64, convert_to_jpeg
 from lib.responses import generate_response
 from lib.middleware import login_required
-from fastapi import APIRouter, Request
-from pydantic import BaseModel, EmailStr
-from lib.functions import image_to_base64
-from lib.initial import CONFIG_DIR
+from lib.initial import IMAGES_DIR
 from lib.logger import logger
+from PIL import Image
+import traceback
+import random
+import string
 import os
 
 class CreateUser(BaseModel):
@@ -28,7 +32,19 @@ class LoginUser(BaseModel):
 
 class UserStatus(BaseModel):
     email: EmailStr
+    
+class UserDetails(BaseModel):
+    displayName: str
+    email: EmailStr
 
+
+ALLOWED_IMAGE_FILES = {
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "image/heic",
+    "image/heif"
+}
 
 router = APIRouter()
 
@@ -123,7 +139,7 @@ async def user_details(request: Request):
         message="Fetched data",
         data={        
             "image": (
-                image_to_base64(os.path.join(CONFIG_DIR, user.profile_picture))
+                image_to_base64(os.path.join(IMAGES_DIR, user.profile_picture))
                 if user.profile_picture
                 else None
             ),
@@ -133,3 +149,56 @@ async def user_details(request: Request):
         
         code=200
     )
+    
+@router.post("/edit-details")
+@login_required()
+async def edit_details(request: Request, file: UploadFile | None = File(None), data: str = Form(...)):
+    try:
+        user_details = UserDetails.model_validate_json(data)
+        
+        filename = None
+        # if a file was uploaded, process and store it
+        if file is not None:
+            # always store file as jpeg
+            if file.content_type not in ALLOWED_IMAGE_FILES:
+                return generate_response(message="Invalid file type.", code=422)
+
+            contents = await file.read()
+            jpeg_bytes = convert_to_jpeg(contents)
+            filename = f"{''.join(random.choices(string.ascii_letters, k=12))}.jpg"
+
+            # write bytes in binary mode
+            with open(os.path.join(IMAGES_DIR, filename), 'wb') as f:
+                f.write(jpeg_bytes)
+
+            # delete old file if present
+            try:
+                old_profile = getattr(request.state.user, 'profile_picture', None)
+                if old_profile:
+                    old_file_path = os.path.join(IMAGES_DIR, old_profile)
+                    if os.path.exists(old_file_path):
+                        os.remove(old_file_path)
+            except Exception:
+                # don't fail the whole request if cleanup fails
+                pass
+
+        # prepare kwargs for edit_user
+        edit_kwargs = {
+            'displayName': user_details.displayName,
+            'email': user_details.email,
+        }
+        if filename:
+            edit_kwargs['profile_picture'] = filename
+
+        # call edit_user with keyword args
+        res = edit_user(request.state.user.id, **edit_kwargs)
+
+        if res:
+            return generate_response(message="User details edited successfully.", code=200)
+    
+    except ValidationError as e:
+        return generate_response(message="Parse failed", data={"errors": e.errors()}, code=422)
+    except Exception as e:
+        logger.error(f"Unable to edit user detail {traceback.format_exc()}")
+    
+    return generate_response(message="Edit details failed", code=500)

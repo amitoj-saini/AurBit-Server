@@ -4,8 +4,33 @@ from fastapi import Response, status
 from lib.logger import logger
 from PIL import Image
 from lib import db
+import pillow_heif
 import base64
 import io
+
+pillow_heif.register_heif_opener()
+
+
+def convert_to_jpeg(file_bytes: bytes) -> bytes:
+    image = Image.open(io.BytesIO(file_bytes))
+
+    # JPEG doesn't support transparency
+    if image.mode in ("RGBA", "LA"):
+        background = Image.new("RGB", image.size, "white")
+        background.paste(image, mask=image.getchannel("A"))
+        image = background
+    else:
+        image = image.convert("RGB")
+
+    output = io.BytesIO()
+    image.save(
+        output,
+        format="JPEG",
+        quality=90,
+        optimize=True
+    )
+
+    return output.getvalue()
 
 def image_to_base64(path, max_size: int=256, quality: int=75):
     try:

@@ -3,10 +3,12 @@ import os
 
 APP_NAME = "aurbit"
 CONFIG_DIR = user_config_dir(APP_NAME)
+UPLOADS_DIR = os.path.join(CONFIG_DIR, "uploads")
+IMAGES_DIR = os.path.join(UPLOADS_DIR, "images")
 DIRS = [
     CONFIG_DIR,
-    os.path.join(CONFIG_DIR, "uploads"),
-    os.path.join(CONFIG_DIR, "uploads", "images")
+    UPLOADS_DIR,
+    IMAGES_DIR
 ]
 
 
