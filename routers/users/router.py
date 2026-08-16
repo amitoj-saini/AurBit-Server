@@ -155,11 +155,9 @@ async def user_details(request: Request):
 async def edit_details(request: Request, file: UploadFile | None = File(None), data: str = Form(...)):
     try:
         user_details = UserDetails.model_validate_json(data)
-        
         filename = None
-        # if a file was uploaded, process and store it
+        
         if file is not None:
-            # always store file as jpeg
             if file.content_type not in ALLOWED_IMAGE_FILES:
                 return generate_response(message="Invalid file type.", code=422)
 
@@ -167,11 +165,9 @@ async def edit_details(request: Request, file: UploadFile | None = File(None), d
             jpeg_bytes = convert_to_jpeg(contents)
             filename = f"{''.join(random.choices(string.ascii_letters, k=12))}.jpg"
 
-            # write bytes in binary mode
             with open(os.path.join(IMAGES_DIR, filename), 'wb') as f:
                 f.write(jpeg_bytes)
 
-            # delete old file if present
             try:
                 old_profile = getattr(request.state.user, 'profile_picture', None)
                 if old_profile:

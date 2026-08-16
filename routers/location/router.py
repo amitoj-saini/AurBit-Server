@@ -4,7 +4,7 @@ from lib.middleware import login_required, login_required_websocket
 from lib.responses import generate_response
 from lib.websocket import ConnectionManager
 from lib.functions import image_to_base64
-from lib.initial import CONFIG_DIR
+from lib.initial import IMAGES_DIR
 from pydantic import BaseModel
 from lib.logger import logger
 import os
@@ -29,7 +29,7 @@ def build_locations_payload(locations, current_user_id=None, message="Fetched lo
                 "users": [
                     {
                         "me": user.id == current_user_id,
-                        "image": image_to_base64(os.path.join(CONFIG_DIR, user.profile_picture)) if user.profile_picture else None,
+                        "image": image_to_base64(os.path.join(IMAGES_DIR, user.profile_picture)) if user.profile_picture else None,
                         "userid": location.user_id,
                         "user": user.displayName,
                         "timestamp": location.timestamp.isoformat(),

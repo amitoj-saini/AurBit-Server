@@ -44,7 +44,8 @@ def image_to_base64(path, max_size: int=256, quality: int=75):
         img.save(buffer, format="JPEG", quality=quality, optimize=True)
 
         return base64.b64encode(buffer.getvalue()).decode("utf-8")
-    except:
+    except Exception as e:
+        print(e)
         pass
     
     return None
