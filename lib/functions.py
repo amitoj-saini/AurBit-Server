@@ -11,18 +11,6 @@ import io
 
 pillow_heif.register_heif_opener()
 
-def name_location(lat, lon, street, street_number, city, region, country):
-    text = f"{lat}, {lon}"
-    if street and street_number:
-        text = f"{street_number} {street}"
-    elif city and region:
-        text = f"{city}, {region}"
-    elif city and country:
-        text = f"{city}, {country}"
-    elif country:
-        text = f"{country}"
-    return text
-
 def distance_meters(lat1, lon1, lat2, lon2):
     R = 6_371_000
 

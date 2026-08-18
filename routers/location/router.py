@@ -1,8 +1,8 @@
 from lib.db_functions.locations import add_location, fetch_recent_locations, fetch_location_history, fetch_last_location
 from fastapi import APIRouter, Request, WebSocket, WebSocketDisconnect, status, Query
-from fastapi.encoders import jsonable_encoder
 from lib.middleware import login_required, login_required_websocket
 from lib.functions import image_to_base64, distance_meters
+from fastapi.encoders import jsonable_encoder
 from lib.responses import generate_response
 from lib.websocket import ConnectionManager
 from datetime import datetime, timedelta
@@ -112,7 +112,7 @@ async def fetch_history(request: Request, params: HistoryQuery = Query()):
         if not params.to_time:
             params.to_time = now
         
-        # unformatted db data
+        # unformatted db data sorted by timestamps
         locations = fetch_location_history(params.user_id, params.from_time, params.to_time)
         
         data = {
@@ -124,11 +124,14 @@ async def fetch_history(request: Request, params: HistoryQuery = Query()):
         if current_location:
             data["current"] = {
                 **{column.name: getattr(current_location, column.name) for column in Locations.__table__.columns},
-                "connected": True if current_location.timestamp > (now - timedelta(hours=5)) else False
+                "timestamp": location.timestamp.isoformat(),
+                "connected": True if current_location.timestamp > (now - timedelta(hours=5)) else False,
             }
         else:
             data["current"] = {
                 **{column.name: None for column in Locations.__table__.columns},
+                "timestamp": location.timestamp.isoformat(),
+                "connected": False
             }
             
         for i in range(len(locations)):
@@ -144,11 +147,14 @@ async def fetch_history(request: Request, params: HistoryQuery = Query()):
                 )
                 
                 if distance < CONFIG["COMBINE_THRESHOLD"]:
-                    # get last record
+                    # increase last record frequency 
                     data["records"][-1]["recorded"] += 1
+                    data["records"][-1]["timestamps"].append(location.timestamp.isoformat())
+                    continue
             
             data["records"].append({
                 **{column.name: getattr(location, column.name) for column in Locations.__table__.columns},
+                "timestamps": [location.timestamp.isoformat()],
                 "recorded": 1
             })
             
