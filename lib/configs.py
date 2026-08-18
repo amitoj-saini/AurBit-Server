@@ -11,13 +11,15 @@ SERVER_CONFIG_FILE = "aurbit-server.json"
 DEFAULT_CONFIG = {
     "HOST": "127.0.0.1",
     "PORT": 2872, # ( spells out the word aura on a keypad )
-    "PWD": ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(32))
+    "PWD": ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(32)),
+    "COMBINE_THRESHOLD": 10 # meters for combining recorded locations
 }
 
 class Config(BaseModel):
     HOST: str
     PORT: int
     PWD: str
+    COMBINE_THRESHOLD: int
 
 def verify_config(data, data_type=dict, required=[]):
     if type(data) != data_type: return False

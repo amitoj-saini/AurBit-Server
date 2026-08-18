@@ -1,18 +1,34 @@
-from lib.db_functions.locations import add_location, fetch_recent_locations
-from fastapi import APIRouter, Request, WebSocket, WebSocketDisconnect, status
+from lib.db_functions.locations import add_location, fetch_recent_locations, fetch_location_history, fetch_last_location
+from fastapi import APIRouter, Request, WebSocket, WebSocketDisconnect, status, Query
+from fastapi.encoders import jsonable_encoder
 from lib.middleware import login_required, login_required_websocket
+from lib.functions import image_to_base64, distance_meters
 from lib.responses import generate_response
 from lib.websocket import ConnectionManager
-from lib.functions import image_to_base64
+from datetime import datetime, timedelta
 from lib.initial import IMAGES_DIR
 from pydantic import BaseModel
 from lib.logger import logger
+from lib.db import Locations
+from lib import configs
+import traceback
 import os
+
+CONFIG = configs.fetch_server_config()
 class Location(BaseModel):
     longitude: float
     latitude: float
     speed: float | None = None
-
+    street: str
+    street_number: str
+    city: str
+    region: str
+    country: str
+    
+class HistoryQuery(BaseModel):
+    user_id: int
+    from_time: str | None = None
+    to_time: str | None = None
 
 router = APIRouter()
 
@@ -46,9 +62,13 @@ def build_locations_payload(locations, current_user_id=None, message="Fetched lo
 
 async def broadcast_recent_locations():
     locations = fetch_recent_locations()
-    payload = build_locations_payload(locations)
-    await connection_manager.broadcast_json(payload)
-
+    async with connection_manager._lock:
+        connections = list(connection_manager.active_connections)
+        for connection in connections:
+            try:
+                await connection.send_json(build_locations_payload(locations, current_user_id=connection.state.user.id))
+            except Exception:
+                await connection_manager.disconnect(connection)
 
 @router.websocket("/")
 @login_required_websocket()
@@ -74,9 +94,73 @@ async def fetch_locations(websocket: WebSocket):
 @login_required()
 async def update_location(request: Request, location: Location):
     location = add_location(
-        request.state.user.id, location.latitude, location.longitude, location.speed
+        request.state.user.id, location.latitude, location.longitude, location.speed, location.street, location.street_number, location.city, location.region, location.country
     )
     if location:
         await broadcast_recent_locations()
         return generate_response(message="Location updated successfully.", code=200)
     return generate_response(message="User Location Update Failed", code=500)
+
+@router.get("/history")
+@login_required()
+async def fetch_history(request: Request, params: HistoryQuery = Query()):
+    try:
+        now = datetime.now()
+        
+        if not params.from_time:
+            params.from_time = datetime.today().replace(hour=0, minute=0, second=0, microsecond=0)
+        if not params.to_time:
+            params.to_time = now
+        
+        # unformatted db data
+        locations = fetch_location_history(params.user_id, params.from_time, params.to_time)
+        
+        data = {
+            "records": [],
+            "current": {}
+        }
+        
+        current_location = fetch_last_location(params.user_id)
+        if current_location:
+            data["current"] = {
+                **{column.name: getattr(current_location, column.name) for column in Locations.__table__.columns},
+                "connected": True if current_location.timestamp > (now - timedelta(hours=5)) else False
+            }
+        else:
+            data["current"] = {
+                **{column.name: None for column in Locations.__table__.columns},
+            }
+            
+        for i in range(len(locations)):
+            location = locations[i]
+            if (i-1) > 0:
+                previous_location = locations[i-1]
+                
+                distance = distance_meters(
+                    location.latitude,
+                    location.longitude,
+                    previous_location.latitude,
+                    previous_location.longitude
+                )
+                
+                if distance < CONFIG["COMBINE_THRESHOLD"]:
+                    # get last record
+                    data["records"][-1]["recorded"] += 1
+            
+            data["records"].append({
+                **{column.name: getattr(location, column.name) for column in Locations.__table__.columns},
+                "recorded": 1
+            })
+            
+        # JSONResponse does not encode ORM values itself; location timestamps are
+        # Python datetimes after expanding the SQLAlchemy model above.
+        return generate_response(
+            message="Fetched user history",
+            data=jsonable_encoder(data),
+            code=200,
+        )
+    except Exception as e:
+        print(traceback.format_exc())
+        logger.error(f"Unable to fetch user history for {params.user_id} {traceback.format_exc()}")
+        
+    return generate_response(message="Something went wrong", code=500)

@@ -29,7 +29,7 @@ def fetch_locations(user_id):
     with session_scope() as session:
         return session.query(Locations).filter(Locations.user_id == user.id).all()
 
-def add_location(user_id, latitude, longitude, speed=None):
+def add_location(user_id, latitude, longitude, speed, street, street_number, city, region, country):
     if not speed:
         user_locations = fetch_locations(user_id)
         last_location = user_locations[-1] if len(user_locations) > 0 else None
@@ -45,7 +45,12 @@ def add_location(user_id, latitude, longitude, speed=None):
             user_id=user_id,
             latitude=latitude,
             longitude=longitude,
-            speed=speed
+            speed=speed,
+            street=street,
+            street_number=street_number,
+            city=city,
+            region=region,
+            country=country
         )
 
         session.add(location)
@@ -63,6 +68,11 @@ def fetch_recent_locations():
                 Locations.latitude.label("latitude"),
                 Locations.longitude.label("longitude"),
                 Locations.timestamp.label("timestamp"),
+                Locations.timestamp.label("street"),
+                Locations.timestamp.label("street_number"),
+                Locations.timestamp.label("city"),
+                Locations.timestamp.label("region"),
+                Locations.timestamp.label("country"),
                 func.row_number()
                 .over(
                     partition_by=Locations.user_id,
@@ -90,3 +100,31 @@ def fetch_recent_locations():
         )
 
         return session.execute(query).all()
+    
+def fetch_last_location(user_id: int):
+    with session_scope() as session:
+        query = (
+            select(Locations)
+            .where(Locations.user_id == user_id)
+            .order_by(
+                Locations.timestamp.desc(),
+                Locations.id.desc()
+            )
+            .limit(1)
+        )
+
+        return session.scalars(query).first()
+
+def fetch_location_history(user_id, from_datetime, to_datetime):
+    with session_scope() as session:
+        locations = session.scalars(
+            select(Locations)
+            .where(
+                Locations.user_id == user_id,
+                Locations.timestamp >= from_datetime,
+                Locations.timestamp <= to_datetime,
+            )
+            .order_by(Locations.timestamp.asc())
+        ).all()
+        
+        return locations

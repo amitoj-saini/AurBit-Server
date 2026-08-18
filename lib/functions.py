@@ -3,12 +3,40 @@ from datetime import datetime, timezone, timedelta
 from fastapi import Response, status
 from lib.logger import logger
 from PIL import Image
+from math import *
 from lib import db
 import pillow_heif
 import base64
 import io
 
 pillow_heif.register_heif_opener()
+
+def name_location(lat, lon, street, street_number, city, region, country):
+    text = f"{lat}, {lon}"
+    if street and street_number:
+        text = f"{street_number} {street}"
+    elif city and region:
+        text = f"{city}, {region}"
+    elif city and country:
+        text = f"{city}, {country}"
+    elif country:
+        text = f"{country}"
+    return text
+
+def distance_meters(lat1, lon1, lat2, lon2):
+    R = 6_371_000
+
+    lat1 = radians(lat1)
+    lat2 = radians(lat2)
+    dlat = lat2 - lat1
+    dlon = radians(lon2 - lon1)
+
+    a = (
+        sin(dlat / 2) ** 2
+        + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
+    )
+
+    return R * 2 * atan2(sqrt(a), sqrt(1 - a))
 
 
 def convert_to_jpeg(file_bytes: bytes) -> bytes:

@@ -70,6 +70,11 @@ class Locations(Base):
     latitude = Column(Float, nullable=False)
     longitude = Column(Float, nullable=False)
     speed = Column(Float, default=0) # defaults to m/s
+    street = Column(String, default="")
+    street_number = Column(String, default="")
+    city = Column(String, default="")
+    region = Column(String, default="")
+    country = Column(String, default="")
 
 
 def init_db():
