@@ -124,7 +124,7 @@ async def fetch_history(request: Request, params: HistoryQuery = Query()):
         if current_location:
             data["current"] = {
                 **{column.name: getattr(current_location, column.name) for column in Locations.__table__.columns},
-                "timestamp": location.timestamp.isoformat(),
+                "timestamp": current_location.timestamp.isoformat(),
                 "connected": True if current_location.timestamp > (now - timedelta(hours=5)) else False,
             }
         else:
@@ -158,8 +158,6 @@ async def fetch_history(request: Request, params: HistoryQuery = Query()):
                 "recorded": 1
             })
             
-        # JSONResponse does not encode ORM values itself; location timestamps are
-        # Python datetimes after expanding the SQLAlchemy model above.
         return generate_response(
             message="Fetched user history",
             data=jsonable_encoder(data),
