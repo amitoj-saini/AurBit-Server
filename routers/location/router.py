@@ -2,10 +2,10 @@ from lib.db_functions.locations import add_location, fetch_recent_locations, fet
 from fastapi import APIRouter, Request, WebSocket, WebSocketDisconnect, status, Query
 from lib.middleware import login_required, login_required_websocket
 from lib.functions import image_to_base64, distance_meters
+from datetime import datetime, timedelta, timezone
 from fastapi.encoders import jsonable_encoder
 from lib.responses import generate_response
 from lib.websocket import ConnectionManager
-from datetime import datetime, timedelta
 from lib.initial import IMAGES_DIR
 from pydantic import BaseModel
 from lib.logger import logger
@@ -105,10 +105,10 @@ async def update_location(request: Request, location: Location):
 @login_required()
 async def fetch_history(request: Request, params: HistoryQuery = Query()):
     try:
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
         
         if not params.from_time:
-            params.from_time = datetime.today().replace(hour=0, minute=0, second=0, microsecond=0)
+            params.from_time = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
         if not params.to_time:
             params.to_time = now
         
@@ -125,7 +125,7 @@ async def fetch_history(request: Request, params: HistoryQuery = Query()):
             data["current"] = {
                 **{column.name: getattr(current_location, column.name) for column in Locations.__table__.columns},
                 "timestamp": current_location.timestamp.isoformat(),
-                "connected": True if current_location.timestamp > (now - timedelta(hours=5)) else False,
+                "connected": True if current_location.timestamp > (now.replace(tzinfo=None) - timedelta(hours=5)) else False,
             }
         else:
             data["current"] = {
@@ -133,10 +133,10 @@ async def fetch_history(request: Request, params: HistoryQuery = Query()):
                 "timestamp": location.timestamp.isoformat(),
                 "connected": False
             }
-            
+        
         for i in range(len(locations)):
             location = locations[i]
-            if (i-1) > 0:
+            if i > 0:
                 previous_location = locations[i-1]
                 
                 distance = distance_meters(
@@ -157,7 +157,7 @@ async def fetch_history(request: Request, params: HistoryQuery = Query()):
                 "timestamps": [location.timestamp.isoformat()],
                 "recorded": 1
             })
-            
+        
         return generate_response(
             message="Fetched user history",
             data=jsonable_encoder(data),

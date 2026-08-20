@@ -121,8 +121,8 @@ def fetch_location_history(user_id, from_datetime, to_datetime):
             select(Locations)
             .where(
                 Locations.user_id == user_id,
-                Locations.timestamp >= from_datetime,
-                Locations.timestamp <= to_datetime,
+                Locations.timestamp >= from_datetime.replace(tzinfo=None),
+                Locations.timestamp <= to_datetime.replace(tzinfo=None),
             )
             .order_by(Locations.timestamp.asc())
         ).all()

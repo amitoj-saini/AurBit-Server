@@ -1,6 +1,7 @@
 from sqlalchemy import create_engine, String, Float, Column, Boolean, Integer, DateTime, ForeignKey, func
 from sqlalchemy.orm import declarative_base, sessionmaker, scoped_session, relationship
 from sqlalchemy.ext.hybrid import hybrid_property
+from datetime import datetime, timezone
 from contextlib import contextmanager
 from lib.initial import CONFIG_DIR
 from alembic.config import Config
@@ -9,6 +10,9 @@ from alembic import command
 import secrets
 import bcrypt
 import os
+
+def utc_now():
+    return datetime.now(timezone.utc)
 
 ENGINE = create_engine(f'sqlite:///{os.path.join(CONFIG_DIR, "aurbit.db")}', echo=False, future=True)
 
@@ -49,7 +53,7 @@ class Session(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     token = Column(String, unique=True, nullable=False, default=lambda: secrets.token_urlsafe(32))
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(DateTime(timezone=True), default=utc_now)
     expires_at = Column(DateTime(timezone=True), nullable=True)
     user = relationship("User", backref="sessions")
 
@@ -59,14 +63,14 @@ class RateLimit(Base):
     ip_addr = Column(String, nullable=False)
     attempts = Column(Integer, default=0, nullable=False)
     seconds = Column(Integer, default=0, nullable=False)
-    last_updated = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
+    last_updated = Column(DateTime(timezone=True), nullable=False, default=utc_now, onupdate=utc_now)
     url = Column(String, nullable=False)
 
 class Locations(Base):
     __tablename__ = "locations"
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    timestamp = Column(DateTime, nullable=False, default=func.now())
+    timestamp = Column(DateTime(timezone=True), nullable=False, default=utc_now)
     latitude = Column(Float, nullable=False)
     longitude = Column(Float, nullable=False)
     speed = Column(Float, default=0) # defaults to m/s
