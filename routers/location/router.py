@@ -1,11 +1,11 @@
 from lib.db_functions.locations import add_location, fetch_recent_locations, fetch_location_history, fetch_last_location
 from fastapi import APIRouter, Request, WebSocket, WebSocketDisconnect, status, Query
 from lib.middleware import login_required, login_required_websocket
-from lib.functions import image_to_base64, distance_meters
 from datetime import datetime, timedelta, timezone
 from fastapi.encoders import jsonable_encoder
 from lib.responses import generate_response
 from lib.websocket import ConnectionManager
+from lib.functions import image_to_base64
 from lib.initial import IMAGES_DIR
 from pydantic import BaseModel
 from lib.logger import logger
@@ -112,59 +112,23 @@ async def fetch_history(request: Request, params: HistoryQuery = Query()):
         if not params.to_time:
             params.to_time = now
         
-        # unformatted db data sorted by timestamps
-        locations = fetch_location_history(params.user_id, params.from_time, params.to_time)
-        
         data = {
-            "records": [],
-            "current": {}
+            "records": [
+                {
+                    **{column.name: getattr(record, column.name) for column in Locations.__table__.columns},
+                    "timestamp": record.timestamp.isoformat(),
+                    "last_timestamp": record.last_timestamp.isoformat()
+                } 
+                for record in fetch_location_history(params.user_id, params.from_time, params.to_time)
+            ]
         }
-        
-        current_location = fetch_last_location(params.user_id)
-        if current_location:
-            data["current"] = {
-                **{column.name: getattr(current_location, column.name) for column in Locations.__table__.columns},
-                "timestamp": current_location.timestamp.isoformat(),
-                "connected": True if current_location.timestamp > (now.replace(tzinfo=None) - timedelta(hours=5)) else False,
-            }
-        else:
-            data["current"] = {
-                **{column.name: None for column in Locations.__table__.columns},
-                "timestamp": location.timestamp.isoformat(),
-                "connected": False
-            }
-        
-        for i in range(len(locations)):
-            location = locations[i]
-            if i > 0:
-                previous_location = locations[i-1]
-                
-                distance = distance_meters(
-                    location.latitude,
-                    location.longitude,
-                    previous_location.latitude,
-                    previous_location.longitude
-                )
-                
-                if distance < CONFIG["COMBINE_THRESHOLD"]:
-                    # increase last record frequency 
-                    data["records"][-1]["recorded"] += 1
-                    data["records"][-1]["timestamps"].append(location.timestamp.isoformat())
-                    continue
             
-            data["records"].append({
-                **{column.name: getattr(location, column.name) for column in Locations.__table__.columns},
-                "timestamps": [location.timestamp.isoformat()],
-                "recorded": 1
-            })
-        
         return generate_response(
             message="Fetched user history",
             data=jsonable_encoder(data),
             code=200,
         )
     except Exception as e:
-        print(traceback.format_exc())
         logger.error(f"Unable to fetch user history for {params.user_id} {traceback.format_exc()}")
         
     return generate_response(message="Something went wrong", code=500)
