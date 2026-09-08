@@ -28,9 +28,19 @@ def fetch_user_from_session(**kwargs):
     with session_scope() as session:
         user_session = session.query(Session).filter_by(**kwargs).one_or_none()
         if user_session:
-            return user_session.user
+            return user_session, user_session.user
         else:
-            return None
+            return None, None
+        
+def delete_session(**kwargs):
+    with session_scope() as session:    
+        deleted_session = session.query(Session).filter_by(**kwargs).one_or_none()
+        if delete_session:
+            session.delete(delete_session)
+        return True
+    
+    return False
+
     
 def create_new_user(**kwargs):
     try:

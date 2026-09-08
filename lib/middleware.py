@@ -49,10 +49,13 @@ async def path_validator(request: Request, call_next):
         )
     
     session_token = request.cookies.get("session")
+    session = None
     session_user = None
+    
     if session_token:
-        session_user = fetch_user_from_session(token=session_token)
-
+        session, session_user = fetch_user_from_session(token=session_token)
+    
+    request.state.session = session
     request.state.user = session_user
 
     return await call_next(request)
@@ -65,7 +68,7 @@ async def websocket_path_validator(websocket: WebSocket):
         return False
 
     session_token = websocket.cookies.get("session") or websocket.query_params.get("session")
-    websocket.state.user = fetch_user_from_session(token=session_token) if session_token else None
+    websocket.state.session, websocket.state.user = fetch_user_from_session(token=session_token) if session_token else None
 
     return True
 

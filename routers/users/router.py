@@ -4,6 +4,7 @@ from lib.db_functions.users import (
     delete_user_sessions,
     fetch_user,
     edit_user,
+    delete_session
 )
 from fastapi import APIRouter, Request, UploadFile, File, Form
 from pydantic import BaseModel, EmailStr, ValidationError
@@ -127,6 +128,17 @@ async def login_user(request: Request, user: LoginUser):
 
     return generate_response(message="Unable to login user", code=500)
 
+@router.post("/logout")
+@login_required()
+async def logout_user(request: Request):
+    deleted_session = delete_session(id=request.state.session.id)
+    if deleted_session:
+        logger.access(f"Session deleted for {request.state.user.email}")
+        return generate_response(message="Session deleted", code=200)
+
+    logger.access(f"Session delete failed for {request.state.user.email}")
+    return generate_response(message="Unable delete user session", code=500)
+    
 
 @router.get("/user-details")
 @login_required()
@@ -144,7 +156,8 @@ async def user_details(request: Request):
                 else None
             ),
             "email": user.email,
-            "displayName": user.displayName    
+            "displayName": user.displayName,
+            "access": user.access
         },
         
         code=200
